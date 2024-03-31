@@ -36,9 +36,9 @@ library(rmdformats)
 ## Global options
 options(max.print = "75")
 knitr::opts_chunk$set(
-  echo = FALSE, cache = FALSE, prompt = FALSE,
+  echo = FALSE, cache = TRUE, prompt = FALSE,
   tidy = FALSE, comment = NA, sass.cache = FALSE,
-  message = FALSE, warning = FALSE, eval.expr=TRUE
+  message = FALSE, warning = FALSE, autodep = TRUE
 )
 #load("framingham_clean.RData")
 library("DT")
@@ -62,9 +62,11 @@ library("performanceEstimation")
 library("caret")
 library("patchwork")
 library("gtsummary")
-library(readr)
-library(shiny)
-library(DataExplorer)
+library("readr")
+library("shiny")
+library("DataExplorer")
+library("MASS")
+library("broom.mixed")
 
 
 opts_knit$set(width = 75)
@@ -83,7 +85,7 @@ The [Framingham Heart Study](https://www.framinghamheartstudy.org) is a longitud
 
 *Data Source and Description* <br> This data comes from the Framingham study which used clinical examination data, of which are most relevant to our analysis are: Period (3 time periods with n1=4434 records, n2=3930 records, n3=3263 records), SYSBP (mean of last 2/3 measurements taken at time of clinical observation), TOTCHOL (serum cholesterol in mg/dl), HDLC/LDLC (available for period 3 only), BMI (weight in kg over height in m\^2), glucose (casual serum glucose mg/dl). The absence of a disease variable is 0. The presence of a disease variable is 1.
 
-```{r, message=FALSE, echo=FALSE}
+```{r, message=FALSE, echo=FALSE, cache=TRUE}
 library(readr)
 f <- read_csv("frmgham2.csv")
 ```
@@ -106,7 +108,7 @@ datatable(f)
 
 On reading the data file, all the 38 variables as well as the ids of the study participants (39th column) were loaded as numerics. As part of the data cleaning, we modified the class for each variable appropriately; the discrete variables like SEX, DIABETES, STROKE, CVD, etc. were converted to factors. The continuous variables like SYSBP, DIABP were kept as numeric data types and integral variables like AGE, TOTCHOL, CIGPDAY and others were modified to integer data types. Next, the missing values for each of the column were checked by obtaining the summary statistics for each column and the rows with missing values were removed. Further, to study the differences in the relationships between different variables at different time points, we split the data into three parts. The subset P1 refers to the data for the participants during the first visit, the subset P2 refers to the data for the participants during the second visit, and P3 refers to the data for the third visit. <br> **We have done all the analysis on four data sets: the entire data, P1, P2 and P3.** <br> <br> One interesting issue that arose with remove missing values was that the values for HDLC and LDLC levels were taken only at the third visit of the individuals during the study, so all the values for HDLC and LDLC were missing for the rows for first two visits. We, therefore, split the data into three parts based on the visit and then removed the columns for HDLC and LDLC for the entire data set, P1 and P2 but retained the HDLC and LDLC columns for P3.
 
-```{r cleanup, message=FALSE, echo=FALSE, results = 'hide'}
+```{r cleanup, message=FALSE, echo=FALSE, results = 'hide', cache=TRUE}
 ## convert data into correct data types
 f$RANDID <- as.factor(f$RANDID)
 f$TOTCHOL <- as.integer(f$TOTCHOL)
@@ -225,7 +227,7 @@ The package, Data Explorer, was used to visualize the summary of the data ( incl
 
 ### Summary of datasets
 
-```{r shiny_DataExplorer_Summary}
+```{r shiny_DataExplorer_Summary, cache=FALSE}
 library(shiny)
 library(DataExplorer)
 
@@ -365,7 +367,7 @@ shinyApp(ui, server, options = list(height = 800))
 
 ```
 
-```{r full model for stroke, message=FALSE, results="hide"}
+```{r full model for stroke, message=FALSE, results="hide", cache=TRUE}
 full.model.all = glm(STROKE ~ TOTCHOL+AGE + SYSBP + DIABP + CIGPDAY + BMI + HEARTRTE + GLUCOSE, data=f, family=binomial)
 summary(full.model.all)
 
@@ -397,36 +399,36 @@ nothing.model.p2 <- glm(STROKE ~ 1, data=fram_p2, family=binomial)
 nothing.model.p3 <- glm(STROKE ~ 1, data=f_p3, family=binomial)
 ```
 
-```{r backward selection for stroke, message=FALSE, results="hide"}
-backwards.model.all <- step(full.model.all, direction = "backward", trace=0) 
-backwards.model.p1 <- step(full.model.p1, direction = "backward", trace=0) 
+```{r backward selection for stroke, message=FALSE, results="hide", cache=TRUE, dependson='full model for stroke'}
+backwards.model.all <- stepAIC(full.model.all, direction = "backward", trace=0) 
+backwards.model.p1 <- stepAIC(full.model.p1, direction = "backward", trace=0) 
 
-backwards.model.p2 <- step(full.model.p2, direction = "backward", trace=0) 
+backwards.model.p2 <- stepAIC(full.model.p2, direction = "backward", trace=0) 
 
-backwards.model.p3 <- step(full.model.p3, direction = "backward", trace=0) 
+backwards.model.p3 <- stepAIC(full.model.p3, direction = "backward", trace=0) 
 ```
 
 ```{r forward for stroke, message=FALSE, results="hide",warning=FALSE}
-forwards.model.all <- step(nothing.model.all,scope=list(lower=formula(nothing.model.all),upper=formula(full.model.all)), direction="forward",trace=0)
+forwards.model.all <- stepAIC(nothing.model.all,scope=list(lower=formula(nothing.model.all),upper=formula(full.model.all)), direction="forward",trace=0)
 
-forwards.model.p1 <- step(nothing.model.p1,scope=list(lower=formula(nothing.model.p1),upper=formula(full.model.p1)), direction="forward",trace=0)
-
-
-forwards.model.p2 <- step(nothing.model.p2,scope=list(lower=formula(nothing.model.p2),upper=formula(full.model.p2)), direction="forward",trace=0)
+forwards.model.p1 <- stepAIC(nothing.model.p1,scope=list(lower=formula(nothing.model.p1),upper=formula(full.model.p1)), direction="forward",trace=0)
 
 
-forwards.model.p3 <- step(nothing.model.p3,scope=list(lower=formula(nothing.model.p3),upper=formula(full.model.p3)), direction="forward",trace=0)
+forwards.model.p2 <- stepAIC(nothing.model.p2,scope=list(lower=formula(nothing.model.p2),upper=formula(full.model.p2)), direction="forward",trace=0)
+
+
+forwards.model.p3 <- stepAIC(nothing.model.p3,scope=list(lower=formula(nothing.model.p3),upper=formula(full.model.p3)), direction="forward",trace=0)
 
 ```
 
 ```{r stepwise for stroke, message=FALSE, results="hide", warning=FALSE}
-stepwise.model.all <- step(nothing.model.all,scope=list(lower=formula(nothing.model.all),upper=formula(full.model.all)), direction="both", trace=0)
+stepwise.model.all <- stepAIC(nothing.model.all,scope=list(lower=formula(nothing.model.all),upper=formula(full.model.all)), direction="both", trace=0)
 
-stepwise.model.p1 <- step(nothing.model.p1,scope=list(lower=formula(nothing.model.p1),upper=formula(full.model.p1)), direction="both", trace=0)
+stepwise.model.p1 <- stepAIC(nothing.model.p1,scope=list(lower=formula(nothing.model.p1),upper=formula(full.model.p1)), direction="both", trace=0)
 
-stepwise.model.p2 <- step(nothing.model.p2,scope=list(lower=formula(nothing.model.p2),upper=formula(full.model.p2)), direction="both", trace=0)
+stepwise.model.p2 <- stepAIC(nothing.model.p2,scope=list(lower=formula(nothing.model.p2),upper=formula(full.model.p2)), direction="both", trace=0)
 
-stepwise.model.p3 <- step(nothing.model.p3,scope=list(lower=formula(nothing.model.p3),upper=formula(full.model.p3)), direction="both", trace=0)
+stepwise.model.p3 <- stepAIC(nothing.model.p3,scope=list(lower=formula(nothing.model.p3),upper=formula(full.model.p3)), direction="both", trace=0)
 
 ```
 
@@ -690,12 +692,6 @@ ratio = sample(1:nrow(f_reP12), size = 0.20*nrow(f_reP12))
 test.data = f_reP12[ratio,] #Test dataset 20% of total
 train.data = f_reP12[-ratio,] #Train dataset 80% of total
 
-```
-
-```{r, message=FALSE, results='hide'}
-#Run full model on training set
-full.model = glm(STROKE ~ TOTCHOL+AGE + meanSYSBP + DIABP + CIGPDAY + BMI + HEARTRTE + GLUCOSE, data=train.data, family=binomial)
-summary(full.model)
 ```
 
 ## Column {data-height="450"}
