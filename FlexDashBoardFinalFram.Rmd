@@ -1,5 +1,5 @@
 ---
-title: "Framingham Study Dashboard"
+title: "The Framingham Study"
 runtime: shiny
 output: 
   flexdashboard::flex_dashboard:
@@ -14,20 +14,19 @@ output:
       version: 4
       bootswatch: minty
     orientation: rows
-    social: menu
-    source_code: embed
+    source_code: "https://github.com/AditiVerma-andbeyond/FraminghamHeartStudy_LongitudinalDA_Flexdashboard"
     navbar:
-      - { title: "About", href: "https://google.com", align: right, icon: glyphicon-time}
-      - { title: "Home", href: "https://google.com", align: right, icon: fa-facebook }
+        - { icon: "fa-linkedin", href: "https://www.linkedin.com/in/aditivermaphd/", align: right}
 editor_options: 
   markdown: 
     wrap: 72
 ---
+
 ```{css}
     .chart-shim {
       overflow: auto;
     }
-    ```
+```
 
 ```{r setup, include=FALSE}
 library(flexdashboard)
@@ -78,7 +77,7 @@ opts_knit$set(width = 75)
 
 ### Introduction and study design
 
-The Framingham Heart Study is a longitudinal study that began in 1948 and enrolled 5,209 adult participants. Through this study, the risk factors that influence cardiovascular health outcomes were discovered. Significant risk factors from this data analysis that are predictors of the adverse outcomes of Stroke and Cardiovascular Disease include systolic blood pressure, cigerettes per day, and blood glucose.
+The [Framingham Heart Study](https://www.framinghamheartstudy.org) is a longitudinal study that began in 1948 and enrolled 5,209 adult participants. Through this study, the risk factors that influence cardiovascular health outcomes were discovered. Significant risk factors from this data analysis that are predictors of the adverse outcomes of Stroke and Cardiovascular Disease include systolic blood pressure, cigarettes per day, and blood glucose.
 
 *Research Question* <br> Using the longitudinal data from the Framingham study, we wanted to analyse if the sustained systolic blood pressure early in life can be used to predict the susceptibility of an individual to suffer from stroke and cardiovascular disease.
 
@@ -181,9 +180,12 @@ dim(f)
 
 # Summary Stats {data-navmenu="Data Exploration"}
 
+
+
+
 ### Summary statistics for the final cleaned up version of the data
 
-## Column {.tabset .tabset-fade data-height=500}
+## Column {.tabset .tabset-fade data-height="500"}
 
 ### Entire data set
 
@@ -214,7 +216,10 @@ sumtable(f_p3,vars=c('TOTCHOL','AGE','SYSBP','DIABP','CIGPDAY','BMI','HEARTRTE',
 
 # Exploratory Data Analysis {data-navmenu="Data Exploration"}
 
-The package, Data Explorer, was used to visualize the summary of the data ( including the percentages of missing values), the distribution of the different types of data using histograms and QQ plots.
+<br>
+
+
+The package, Data Explorer, was used to visualize the summary of the data ( including the percentages of missing values), the distribution of the different types of data using histograms. We also observed the correlations between the different variables.
 
 ## Column {data-height="500"}
 
@@ -360,8 +365,6 @@ shinyApp(ui, server, options = list(height = 800))
 
 ```
 
-
-
 ```{r full model for stroke, message=FALSE, results="hide"}
 full.model.all = glm(STROKE ~ TOTCHOL+AGE + SYSBP + DIABP + CIGPDAY + BMI + HEARTRTE + GLUCOSE, data=f, family=binomial)
 summary(full.model.all)
@@ -454,13 +457,15 @@ formula(stepwise.model.p3)
 
 ```
 
-# Logistic Regression for predicting STROKE {data-navmenu="Logistic Regression Analysis"}
+# Logistic Regression for predicting STROKE {data-navmenu="Logistic Regression"}
 
-## Visualising the relationship of the incidence of stroke with all continuous variables in all data sets
+<br>
+
+### Visualising the relationship of the incidence of stroke with all continuous variables in all data sets
 
 ## Row
 
-### Summary of  regression models for entire data
+### Summary of regression models for entire data
 
 ```{r, summary plots for full model:STROKE, fig.show="hold", out.width="50%"}
 plot_summs(full.model.all,reduced.model.pvalue.all,backwards.model.all,stepwise.model.all,forwards.model.all, model.names = c("Full model: Entire", "Reduced model: Entire", "Backwards model: Entire","Stepwise model: Entire","Forwards model: Entire") )
@@ -468,7 +473,7 @@ plot_summs(full.model.all,reduced.model.pvalue.all,backwards.model.all,stepwise.
 
 ### Summary of different regression models for visit 1
 
-```{r, summary plots for full model:STROKE visit 1, fig.show="hold", out.width="50%"}
+```{r, summary plots for full model:STROKE visit 1, fig.show="hold", out.width="75%"}
 plot_summs(full.model.p1,reduced.model.pvalue.p1,backwards.model.p1,stepwise.model.p1,forwards.model.p1, model.names = c("Full model: Visit1", "Reduced model: Visit1", "Backwards model: Visit1","Stepwise model: Visit1","Forwards model: Visit1") )
 ```
 
@@ -476,17 +481,19 @@ plot_summs(full.model.p1,reduced.model.pvalue.p1,backwards.model.p1,stepwise.mod
 
 ### Summary of different regression models for visit 2
 
-```{r, summary plots for full model:STROKE visit 2, fig.show="hold", out.width="50%"}
+```{r, summary plots for full model:STROKE visit 2, fig.show="hold", out.width="75%"}
 plot_summs(full.model.p2,reduced.model.pvalue.p2,backwards.model.p2,stepwise.model.p2,forwards.model.p2, model.names = c("Full model: Visit2", "Reduced model: Visit2", "Backwards model: Visit2","Stepwise model: Visit2","Forwards model: Visit2") )
 ```
 
 ### Summary of different regression models for visit 3
 
-```{r, summary plots for full model:STROKE visit 3, fig.show="hold", out.width="50%"}
+```{r, summary plots for full model:STROKE visit 3, fig.show="hold", out.width="75%"}
 plot_summs(full.model.p3,reduced.model.pvalue.p3,backwards.model.p3,stepwise.model.p3,forwards.model.p3, model.names = c("Full model: Visit3", "Reduced model: Visit3", "Backwards model: Visit3","Stepwise model: Visit3","Forwards model: Visit3") )
 ```
 
-# Comparison of the models across criteria {data-navmenu="Logistic Regression Analysis"}
+# Comparison of the models across criteria {data-navmenu="Logistic Regression"}
+
+<br>
 
 ## Row {.tabset .tabset-fade data-height="650"}
 
@@ -523,7 +530,7 @@ stargazer(models, type = "text")
 compare_performance(full.model.p3, reduced.model.pvalue.p3, backwards.model.p3, forwards.model.p3, stepwise.model.p3, metrics = "common")
 ```
 
-# Longitudinal analysis for Stroke
+# Longitudinal analysis for Stroke {data-navmenu="Stroke Prediction"}
 
 ## Column {data-width="400"}
 
@@ -559,8 +566,9 @@ ui <- shinyUI(fluidPage(
     ),
     mainPanel(
       h2("Trend of the variable over visits segregated by stroke"),
-      verbatimTextOutput("LA"),
-      plotOutput("box")
+      
+      plotOutput("box"),
+      verbatimTextOutput("LA")
     )
   )
 ))
@@ -573,8 +581,8 @@ output$box <- renderPlot({
   summarise(mean = list(mean_ci(.data[[input$var]])), .groups = "drop") %>% 
   unnest_wider(mean) %>% 
   ggplot(aes(PERIOD, y, col = STROKE, shape = STROKE)) +
-  geom_point() +
-  geom_errorbar(aes(ymin = ymin, ymax = ymax), width = 0.2) +
+  geom_point(size=5) +
+  geom_errorbar(aes(ymin = ymin, ymax = ymax), width = 0.5) +
   geom_line() +
   labs(x = "Period, visit", y = input$var , shape = "Stroke", col = "Stroke")+
   theme_minimal() +  # Minimalist theme
@@ -612,8 +620,8 @@ ui <- shinyUI(fluidPage(
     ),
     mainPanel(
       h2("Trend of the variable over visits segregated by stroke"),
-      verbatimTextOutput("LA"),
-      plotOutput("box")
+      plotOutput("box"),
+      verbatimTextOutput("LA")
     )
   )
 ))
@@ -626,10 +634,11 @@ output$box <- renderPlot({
   summarise(mean = list(mean_ci(.data[[input$var]])), .groups = "drop") %>% 
   unnest_wider(mean) %>% 
   ggplot(aes(AGE, y, col = STROKE, shape = STROKE)) +
-  geom_point() +
+  geom_point(size=2) +
   geom_errorbar(aes(ymin = ymin, ymax = ymax), width = 0.2) +
   geom_line() +
   labs(x = "Age, years", y = input$var , shape = "Stroke", col = "Stroke")+
+    xlim(30,75) +
   theme_minimal() +  # Minimalist theme
   theme(legend.position = "top",  # Move legend to the top
         legend.title = element_text(face = "italic"))  #
@@ -643,7 +652,7 @@ shinyApp(ui, server, options = list(height = 800))
 
 ```
 
-# ML Prediction of Stroke
+# ML Prediction of Stroke {data-navmenu="Stroke Prediction"}
 
 ## Column {data-height="150"}
 
@@ -689,7 +698,7 @@ full.model = glm(STROKE ~ TOTCHOL+AGE + meanSYSBP + DIABP + CIGPDAY + BMI + HEAR
 summary(full.model)
 ```
 
-## Column {data-height="650"}
+## Column {data-height="450"}
 
 ### Initial ML model for predicting stroke based on age and systolic blood pressure earlier in life
 
@@ -698,7 +707,7 @@ ML.model <- glm(STROKE ~ AGE + meanSYSBP, data=train.data, family=binomial)
 summary(ML.model)
 ```
 
-## Column {data-height="350"}
+## Column {data-height="650"}
 
 ### Performance of the initial ML model
 
@@ -711,7 +720,7 @@ cnfmtrx <- table(prd=prdBln, act=train.data$STROKE)
 confusionMatrix(cnfmtrx)
 ```
 
-## Column {data-height="400"}
+## Column {data-height="350"}
 
 ### Resampling of data to remove biased distribution
 
@@ -736,7 +745,7 @@ train.data = f_new[-ratio,] #Train dataset 80% of total
 #Note: r packages exits that makes this easy to do
 ```
 
-## Column {data-height="650"}
+## Column {data-height="450"}
 
 ### Machine learning model on the resampled data set
 
@@ -745,7 +754,7 @@ ML.model.red.smote <- glm(STROKE ~ AGE + meanSYSBP, data=train.data, family=bino
 summary(ML.model.red.smote)
 ```
 
-## Column {data-height="650"}
+## Column {data-height="650" data-width=350}
 
 ### Evaluation of the the machine learning model on the training data set
 
@@ -758,7 +767,6 @@ cnfmtrx.red.smote.train <- table(prd=prdBln, act=train.data$STROKE)
 confusionMatrix(cnfmtrx.red.smote.train)
 ```
 
-## Column {data-height="650"}
 
 ### Evaluation of the the machine learning model on the test data set
 
@@ -771,3 +779,11 @@ cnfmtrx.red.smote.test <- table(prd=prdBln, act=test.data$STROKE)
 confusionMatrix(cnfmtrx.red.smote.test)
 
 ```
+
+## Column {data-height="200"}
+
+### Conclusions
+
+The longitudinal analysis combined with logistic regression indicated that systolic BP was most significantly correlated with stroke. 
+Our machine learning model could predict the susceptibility to stroke based on the age and systolic blood pressure of individuals with an accuracy of 63.29%.
+Our results match the results from the original study with this data which established the effect of blood pressure on stroke.
