@@ -1,0 +1,773 @@
+---
+title: "Framingham Study Dashboard"
+runtime: shiny
+output: 
+  flexdashboard::flex_dashboard:
+    storyboard: true
+    vertical_layout: scroll
+    theme: 
+      bg: "#FFFFFF"
+      fg: "#000000" 
+      primary: "#78C2AD"
+      base_font: !expr bslib::font_google("Prompt")
+      code_font: !expr bslib::font_google("JetBrains Mono")
+      version: 4
+      bootswatch: minty
+    orientation: rows
+    social: menu
+    source_code: embed
+    navbar:
+      - { title: "About", href: "https://google.com", align: right, icon: glyphicon-time}
+      - { title: "Home", href: "https://google.com", align: right, icon: fa-facebook }
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+```{css}
+    .chart-shim {
+      overflow: auto;
+    }
+    ```
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(knitr)
+library(rmdformats)
+
+## Global options
+options(max.print = "75")
+knitr::opts_chunk$set(
+  echo = FALSE, cache = FALSE, prompt = FALSE,
+  tidy = FALSE, comment = NA, sass.cache = FALSE,
+  message = FALSE, warning = FALSE, eval.expr=TRUE
+)
+#load("framingham_clean.RData")
+library("DT")
+library("dplyr")
+library("ggplot2")
+ library("scales")
+library("leaflet")
+library("shiny")
+library("glue")
+library("rmarkdown")
+library("sf")
+library("DataExplorer")
+library("lemon")
+library("ggplot2")
+library("jtools")
+library("stargazer")
+library("performance")
+library("tidyr")
+library("emmeans")
+library("performanceEstimation")
+library("caret")
+library("patchwork")
+library("gtsummary")
+library(readr)
+library(shiny)
+library(DataExplorer)
+
+
+opts_knit$set(width = 75)
+
+```
+
+# Introduction
+
+## Column {data-height="350"}
+
+### Introduction and study design
+
+The Framingham Heart Study is a longitudinal study that began in 1948 and enrolled 5,209 adult participants. Through this study, the risk factors that influence cardiovascular health outcomes were discovered. Significant risk factors from this data analysis that are predictors of the adverse outcomes of Stroke and Cardiovascular Disease include systolic blood pressure, cigerettes per day, and blood glucose.
+
+*Research Question* <br> Using the longitudinal data from the Framingham study, we wanted to analyse if the sustained systolic blood pressure early in life can be used to predict the susceptibility of an individual to suffer from stroke and cardiovascular disease.
+
+*Data Source and Description* <br> This data comes from the Framingham study which used clinical examination data, of which are most relevant to our analysis are: Period (3 time periods with n1=4434 records, n2=3930 records, n3=3263 records), SYSBP (mean of last 2/3 measurements taken at time of clinical observation), TOTCHOL (serum cholesterol in mg/dl), HDLC/LDLC (available for period 3 only), BMI (weight in kg over height in m\^2), glucose (casual serum glucose mg/dl). The absence of a disease variable is 0. The presence of a disease variable is 1.
+
+```{r, message=FALSE, echo=FALSE}
+library(readr)
+f <- read_csv("frmgham2.csv")
+```
+
+## Column {data-height="600"}
+
+### Preview of original data frame
+
+```{r, message=FALSE}
+### a quick preview of the data frame
+datatable(f)
+
+### the dimensions of the matrix
+#dim(f)
+```
+
+## Column {data-height="350"}
+
+### Cleaning up the data: Data Munging
+
+On reading the data file, all the 38 variables as well as the ids of the study participants (39th column) were loaded as numerics. As part of the data cleaning, we modified the class for each variable appropriately; the discrete variables like SEX, DIABETES, STROKE, CVD, etc. were converted to factors. The continuous variables like SYSBP, DIABP were kept as numeric data types and integral variables like AGE, TOTCHOL, CIGPDAY and others were modified to integer data types. Next, the missing values for each of the column were checked by obtaining the summary statistics for each column and the rows with missing values were removed. Further, to study the differences in the relationships between different variables at different time points, we split the data into three parts. The subset P1 refers to the data for the participants during the first visit, the subset P2 refers to the data for the participants during the second visit, and P3 refers to the data for the third visit. <br> **We have done all the analysis on four data sets: the entire data, P1, P2 and P3.** <br> <br> One interesting issue that arose with remove missing values was that the values for HDLC and LDLC levels were taken only at the third visit of the individuals during the study, so all the values for HDLC and LDLC were missing for the rows for first two visits. We, therefore, split the data into three parts based on the visit and then removed the columns for HDLC and LDLC for the entire data set, P1 and P2 but retained the HDLC and LDLC columns for P3.
+
+```{r cleanup, message=FALSE, echo=FALSE, results = 'hide'}
+## convert data into correct data types
+f$RANDID <- as.factor(f$RANDID)
+f$TOTCHOL <- as.integer(f$TOTCHOL)
+f$AGE <- as.integer(f$AGE)
+f$AGE <- as.integer(f$AGE)
+f$SEX <-as.factor(f$SEX)
+f$CURSMOKE <-as.factor(f$CURSMOKE)
+f$CIGPDAY <- as.integer(f$CIGPDAY)
+f$DIABETES <-as.factor(f$DIABETES)
+f$BPMEDS <-as.factor(f$BPMEDS)
+f$HEARTRTE <- as.integer(f$HEARTRTE)
+f$GLUCOSE <- as.integer(f$GLUCOSE)
+f$educ <- as.factor(f$educ)
+f$PREVCHD <- as.factor(f$PREVCHD)
+f$PREVAP <- as.factor(f$PREVAP)
+f$PREVMI <- as.factor(f$PREVMI)
+f$PREVSTRK <- as.factor(f$PREVSTRK)
+f$PREVHYP <- as.factor(f$PREVHYP)
+f$TIME <- as.integer(f$TIME)
+f$PERIOD <- as.factor(f$PERIOD)
+f$HDLC <- as.integer(f$HDLC)
+f$LDLC <- as.integer(f$LDLC)
+f$DEATH <- as.factor(f$DEATH)
+f$ANGINA <- as.factor(f$ANGINA)
+f$HOSPMI <- as.factor(f$HOSPMI)
+f$MI_FCHD <- as.factor(f$MI_FCHD)
+f$ANYCHD <- as.factor(f$ANYCHD)
+f$STROKE <- as.factor(f$STROKE)
+f$CVD <- as.factor(f$CVD)
+f$HYPERTEN <- as.factor(f$HYPERTEN)
+f$TIMEAP <- as.integer(f$TIMEAP)
+f$TIMEMI <- as.integer(f$TIMEMI)
+f$TIMEMIFC <- as.integer(f$TIMEMIFC)
+f$TIMECHD <- as.integer(f$TIMECHD)
+f$TIMESTRK <- as.integer(f$TIMESTRK)
+f$TIMECVD <- as.integer(f$TIMECVD)
+f$TIMEDTH <- as.integer(f$TIMEDTH)
+f$TIMEHYP <- as.integer(f$TIMEHYP)
+#remove the missing values
+f=f[!is.na(f$TOTCHOL),]
+f=f[!is.na(f$CIGPDAY),]
+f=f[!is.na(f$BMI),]
+f=f[!is.na(f$GLUCOSE),]
+f=f[!is.na(f$BPMEDS),]
+f=f[!is.na(f$educ),]
+class(f$PERIOD)
+#subset data for all participants for the first visit
+f_p1 = f[f$PERIOD == 1,]
+dim(f_p1)
+#remove the HDLC and LDLC columns for which there are no values for first visit
+f_p1 = subset(f_p1, select = -c(HDLC,LDLC) )
+f_p1 = na.omit(f_p1)
+dim(f_p1)
+#subset data for all participants for the second visit
+fram_p2 = f[f$PERIOD == 2,]
+dim(fram_p2)
+#remove the HDLC and LDLC columns for which there are no values for first visit
+fram_p2 = subset(fram_p2, select = -c(HDLC,LDLC) )
+fram_p2 = na.omit(fram_p2)
+dim(fram_p2)
+#subset data for all participants for the third visit
+f_p3 = f[f$PERIOD == 3,]
+f_p3 = na.omit(f_p3)
+dim(f_p3)
+
+#remove the HDLC and LDLC columns for which there are no values for first and second visit in the full data set
+f = subset(f, select = -c(HDLC,LDLC) )
+f = na.omit(f)
+dim(f)
+```
+
+# Summary Stats {data-navmenu="Data Exploration"}
+
+### Summary statistics for the final cleaned up version of the data
+
+## Column {.tabset .tabset-fade data-height=500}
+
+### Entire data set
+
+```{r table_entiredata}
+#library(lemon)
+#knit_print.data.frame <- lemon_print
+library(vtable)
+sumtable(f,vars=c('TOTCHOL','AGE','SYSBP','DIABP','CIGPDAY','BMI','HEARTRTE','GLUCOSE'))
+```
+
+### Visit 1
+
+```{r table_visit1}
+sumtable(f_p1,vars=c('TOTCHOL','AGE','SYSBP','DIABP','CIGPDAY','BMI','HEARTRTE','GLUCOSE'))
+```
+
+### Visit 2
+
+```{r table_visit2}
+sumtable(fram_p2,vars=c('TOTCHOL','AGE','SYSBP','DIABP','CIGPDAY','BMI','HEARTRTE','GLUCOSE'))
+```
+
+### Visit 3
+
+```{r table_visit3}
+sumtable(f_p3,vars=c('TOTCHOL','AGE','SYSBP','DIABP','CIGPDAY','BMI','HEARTRTE','GLUCOSE'))
+```
+
+# Exploratory Data Analysis {data-navmenu="Data Exploration"}
+
+The package, Data Explorer, was used to visualize the summary of the data ( including the percentages of missing values), the distribution of the different types of data using histograms and QQ plots.
+
+## Column {data-height="500"}
+
+### Summary of datasets
+
+```{r shiny_DataExplorer_Summary}
+library(shiny)
+library(DataExplorer)
+
+ui <- fluidPage(
+  titlePanel("Summary of Each Data Set"),
+  fluidRow(
+    selectInput(inputId = "df_test",
+                label = "Select Data subset",
+                choices = c("Entire data set" = "f", 
+                            "Visit 1" = "f_p1",
+                            "Visit 2" = "fram_p2",
+                            "Visit 3" = "f_p3"), 
+                selected = "Entire data set", 
+                width = "100%"),
+    plotOutput("test_table")
+  )
+)
+
+server <- function(input, output) {
+  output$test_table <- renderPlot({
+    DataExplorer::plot_intro(get(input$df_test))
+  })
+}
+options = list(height = 750)
+shinyApp(ui, server)
+```
+
+## Column {data-width="600"}
+
+<br>
+
+### Histograms for the columns with continuous variables in each of the data subsets
+
+```{r shiny_DataExplorer_UnivariateDistribution, cache=FALSE}
+
+ui <- fluidPage(
+  titlePanel("Univariate Distribution for variables in Each Data Set"),
+  fluidRow(
+    selectInput(inputId = "df_test",
+                label = "Select Data subset",
+                choices = c("Entire data set" = "f", 
+                            "Visit 1" = "f_p1",
+                            "Visit 2" = "fram_p2",
+                            "Visit 3" = "f_p3"), 
+                selected = "f_p1"
+                ),
+    plotOutput("test_table")
+  )
+)
+
+server <- function(input, output) {
+  output$test_table <- renderPlot({
+    DataExplorer::plot_histogram(get(input$df_test))
+  })
+}
+options = list(height = 750)
+shinyApp(ui, server)
+```
+
+### Correlation plots for the variables in each of the data subsets
+
+```{r shiny_DataExplorer_CorrelationPlots, cache=FALSE}
+f1 = subset(f, select = -c(PREVAP,PREVHYP, PREVCHD, PREVMI, PREVSTRK, TIMEHYP, TIMEDTH, TIMECVD, TIMESTRK, TIMECHD, TIMEMIFC, TIMEMI, TIMEMI, TIMEAP, TIME, ANYCHD, HOSPMI, DEATH, ANGINA, MI_FCHD, CURSMOKE, educ, DIABETES, CURSMOKE, RANDID, BPMEDS, PERIOD) )
+f_p11 = subset(f_p1, select = -c(PREVAP,PREVHYP, PREVCHD, PREVMI, PREVSTRK, TIMEHYP, TIMEDTH, TIMECVD, TIMESTRK, TIMECHD, TIMEMIFC, TIMEMI, TIMEMI, TIMEAP, TIME, ANYCHD, HOSPMI, DEATH, ANGINA, MI_FCHD, CURSMOKE, educ, DIABETES, CURSMOKE, RANDID, BPMEDS, PERIOD) )
+fram_p21 = subset(fram_p2, select = -c(PREVAP,PREVHYP, PREVCHD, PREVMI, PREVSTRK, TIMEHYP, TIMEDTH, TIMECVD, TIMESTRK, TIMECHD, TIMEMIFC, TIMEMI, TIMEMI, TIMEAP, TIME, ANYCHD, HOSPMI, DEATH, ANGINA, MI_FCHD, CURSMOKE, educ, DIABETES, CURSMOKE, RANDID, BPMEDS, PERIOD) )
+f_p31 = subset(f_p3, select = -c(PREVAP,PREVHYP, PREVCHD, PREVMI, PREVSTRK, TIMEHYP, TIMEDTH, TIMECVD, TIMESTRK, TIMECHD, TIMEMIFC, TIMEMI, TIMEMI, TIMEAP, TIME, ANYCHD, HOSPMI, DEATH, ANGINA, MI_FCHD, CURSMOKE, educ, DIABETES, CURSMOKE, RANDID, BPMEDS, PERIOD) )
+ui <- fluidPage(
+  titlePanel("Correlation Plots for Each Data Set"),
+  fluidRow(
+    selectInput(inputId = "df_test",
+                label = "Select Data subset",
+                choices = c("Entire data set" = "f1", 
+                            "Visit 1" = "f_p11",
+                            "Visit 2" = "fram_p21",
+                            "Visit 3" = "f_p31"), 
+                selected = "Entire data set", 
+                width = "100%"),
+    plotOutput("test_table")
+  )
+)
+
+server <- function(input, output) {
+  output$test_table <- renderPlot({
+    DataExplorer::plot_correlation(get(input$df_test),
+                                   maxcat=10,
+                                   type="all",
+                                      )
+  })
+}
+
+shinyApp(ui, server, options = list(height = 750))
+```
+
+# Comparisons across visits {data-navmenu="Data Exploration"}
+
+### Basic ANOVA for visualising the differences in continuous variables at the three visits
+
+```{r shiny_ANOVA, cache=FALSE}
+
+ui <- shinyUI(fluidPage(
+  titlePanel("ANOVA for continuous variables"),
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("var", label = "Choose a variable",
+                  choices = c("Total Cholesterol" = "TOTCHOL",
+                              "Systolic BP" = "SYSBP",
+                              "Age" = "AGE",
+                              "Diastolic BP" = "DIABP",
+                              "BMI" = "BMI",
+                              "Cigarettes per Day" = "CIGPDAY",
+                              "Heart Rate" = "HEARTRTE",
+                              "Glucose" = "GLUCOSE"), 
+                  selected = "SYSBP")
+    ),
+    mainPanel(
+      h2("ANOVA results for the variable"),
+      verbatimTextOutput("ANOVA"),
+      plotOutput("box")
+    )
+  )
+))
+
+server <- shinyServer(function(input, output) {
+  output$ANOVA <- renderPrint({
+    summary(aov(formula = as.formula(paste(input$var, "~ PERIOD")), data = f))
+  })
+
+  output$box <- renderPlot({
+    ggplot(f, aes(x = PERIOD, y = .data[[input$var]], fill = PERIOD)) +
+      geom_boxplot() +
+      labs(x = "VISIT", y = input$var) +
+      theme_minimal()
+  })
+})
+options = list(height = 800)
+shinyApp(ui, server, options = list(height = 800))
+
+```
+
+
+
+```{r full model for stroke, message=FALSE, results="hide"}
+full.model.all = glm(STROKE ~ TOTCHOL+AGE + SYSBP + DIABP + CIGPDAY + BMI + HEARTRTE + GLUCOSE, data=f, family=binomial)
+summary(full.model.all)
+
+full.model.p1 = glm(STROKE ~ TOTCHOL+AGE + SYSBP + DIABP + CIGPDAY + BMI + HEARTRTE + GLUCOSE, data=f_p1, family=binomial)
+summary(full.model.p1)
+
+full.model.p2 = glm(STROKE ~ TOTCHOL+AGE + SYSBP + DIABP + CIGPDAY + BMI + HEARTRTE + GLUCOSE, data=fram_p2, family=binomial)
+summary(full.model.p2)
+
+full.model.p3 = glm(STROKE ~ TOTCHOL+AGE + SYSBP + DIABP + CIGPDAY + BMI + HEARTRTE + GLUCOSE + HDLC + LDLC, data=f_p3, family=binomial)
+summary(full.model.p3)
+```
+
+```{r reduced model for stroke, message=FALSE, results="hide",warning=FALSE}
+reduced.model.pvalue.all = glm(STROKE ~ TOTCHOL+AGE + SYSBP + DIABP + CIGPDAY + HEARTRTE + GLUCOSE, data=f, family=binomial)
+
+reduced.model.pvalue.p1 = glm(STROKE ~ AGE + DIABP + CIGPDAY + HEARTRTE, data=f_p1, family=binomial)
+
+reduced.model.pvalue.p2 = glm(STROKE ~ TOTCHOL + AGE + SYSBP + GLUCOSE, data=fram_p2, family=binomial)
+
+reduced.model.pvalue.p3 = glm(STROKE ~ AGE + SYSBP + CIGPDAY + HDLC, data=f_p3, family=binomial)
+
+```
+
+```{r nothing selection for stroke, message=FALSE, results="hide"}
+nothing.model.all <- glm(STROKE ~ 1, data=f, family=binomial)
+nothing.model.p1 <- glm(STROKE ~ 1, data=f_p1, family=binomial)
+nothing.model.p2 <- glm(STROKE ~ 1, data=fram_p2, family=binomial)
+nothing.model.p3 <- glm(STROKE ~ 1, data=f_p3, family=binomial)
+```
+
+```{r backward selection for stroke, message=FALSE, results="hide"}
+backwards.model.all <- step(full.model.all, direction = "backward", trace=0) 
+backwards.model.p1 <- step(full.model.p1, direction = "backward", trace=0) 
+
+backwards.model.p2 <- step(full.model.p2, direction = "backward", trace=0) 
+
+backwards.model.p3 <- step(full.model.p3, direction = "backward", trace=0) 
+```
+
+```{r forward for stroke, message=FALSE, results="hide",warning=FALSE}
+forwards.model.all <- step(nothing.model.all,scope=list(lower=formula(nothing.model.all),upper=formula(full.model.all)), direction="forward",trace=0)
+
+forwards.model.p1 <- step(nothing.model.p1,scope=list(lower=formula(nothing.model.p1),upper=formula(full.model.p1)), direction="forward",trace=0)
+
+
+forwards.model.p2 <- step(nothing.model.p2,scope=list(lower=formula(nothing.model.p2),upper=formula(full.model.p2)), direction="forward",trace=0)
+
+
+forwards.model.p3 <- step(nothing.model.p3,scope=list(lower=formula(nothing.model.p3),upper=formula(full.model.p3)), direction="forward",trace=0)
+
+```
+
+```{r stepwise for stroke, message=FALSE, results="hide", warning=FALSE}
+stepwise.model.all <- step(nothing.model.all,scope=list(lower=formula(nothing.model.all),upper=formula(full.model.all)), direction="both", trace=0)
+
+stepwise.model.p1 <- step(nothing.model.p1,scope=list(lower=formula(nothing.model.p1),upper=formula(full.model.p1)), direction="both", trace=0)
+
+stepwise.model.p2 <- step(nothing.model.p2,scope=list(lower=formula(nothing.model.p2),upper=formula(full.model.p2)), direction="both", trace=0)
+
+stepwise.model.p3 <- step(nothing.model.p3,scope=list(lower=formula(nothing.model.p3),upper=formula(full.model.p3)), direction="both", trace=0)
+
+```
+
+```{r comparing all models for stroke, results="hide", message=FALSE}
+formula(full.model.all)
+formula(reduced.model.pvalue.all)
+formula(backwards.model.all)
+formula(forwards.model.all)
+formula(stepwise.model.all)
+
+formula(full.model.p1)
+formula(reduced.model.pvalue.p1)
+formula(backwards.model.p1)
+formula(forwards.model.p1)
+formula(stepwise.model.p1)
+
+formula(full.model.p2)
+formula(reduced.model.pvalue.p2)
+formula(backwards.model.p2)
+formula(forwards.model.p2)
+formula(stepwise.model.p2)
+
+formula(full.model.p3)
+formula(reduced.model.pvalue.p3)
+formula(backwards.model.p3)
+formula(forwards.model.p3)
+formula(stepwise.model.p3)
+
+```
+
+# Logistic Regression for predicting STROKE {data-navmenu="Logistic Regression Analysis"}
+
+## Visualising the relationship of the incidence of stroke with all continuous variables in all data sets
+
+## Row
+
+### Summary of  regression models for entire data
+
+```{r, summary plots for full model:STROKE, fig.show="hold", out.width="50%"}
+plot_summs(full.model.all,reduced.model.pvalue.all,backwards.model.all,stepwise.model.all,forwards.model.all, model.names = c("Full model: Entire", "Reduced model: Entire", "Backwards model: Entire","Stepwise model: Entire","Forwards model: Entire") )
+```
+
+### Summary of different regression models for visit 1
+
+```{r, summary plots for full model:STROKE visit 1, fig.show="hold", out.width="50%"}
+plot_summs(full.model.p1,reduced.model.pvalue.p1,backwards.model.p1,stepwise.model.p1,forwards.model.p1, model.names = c("Full model: Visit1", "Reduced model: Visit1", "Backwards model: Visit1","Stepwise model: Visit1","Forwards model: Visit1") )
+```
+
+## Row
+
+### Summary of different regression models for visit 2
+
+```{r, summary plots for full model:STROKE visit 2, fig.show="hold", out.width="50%"}
+plot_summs(full.model.p2,reduced.model.pvalue.p2,backwards.model.p2,stepwise.model.p2,forwards.model.p2, model.names = c("Full model: Visit2", "Reduced model: Visit2", "Backwards model: Visit2","Stepwise model: Visit2","Forwards model: Visit2") )
+```
+
+### Summary of different regression models for visit 3
+
+```{r, summary plots for full model:STROKE visit 3, fig.show="hold", out.width="50%"}
+plot_summs(full.model.p3,reduced.model.pvalue.p3,backwards.model.p3,stepwise.model.p3,forwards.model.p3, model.names = c("Full model: Visit3", "Reduced model: Visit3", "Backwards model: Visit3","Stepwise model: Visit3","Forwards model: Visit3") )
+```
+
+# Comparison of the models across criteria {data-navmenu="Logistic Regression Analysis"}
+
+## Row {.tabset .tabset-fade data-height="650"}
+
+### Entire data set
+
+```{r, message=FALSE, warning=FALSE}
+models <- list(full.model.all, reduced.model.pvalue.all, backwards.model.all, forwards.model.all, stepwise.model.all)
+stargazer(models, type = "text")
+compare_performance(full.model.all, reduced.model.pvalue.all, backwards.model.all, forwards.model.all, stepwise.model.all, metrics = "common") 
+```
+
+### Visit 1
+
+```{r, message=FALSE, warning=FALSE}
+models <- list(full.model.p1, reduced.model.pvalue.p1, backwards.model.p1, forwards.model.p1, stepwise.model.p1)
+stargazer(models, type = "text")
+compare_performance(full.model.p1, reduced.model.pvalue.p1, backwards.model.p1, forwards.model.p1, stepwise.model.p1, metrics = "common")
+```
+
+### Visit 2
+
+```{r, message=FALSE, warning=FALSE}
+models <- list(full.model.p2, reduced.model.pvalue.p2, backwards.model.p2, forwards.model.p2, stepwise.model.p2)
+stargazer(models, type = "text")
+compare_performance(full.model.p2, reduced.model.pvalue.p2, backwards.model.p2, forwards.model.p2, stepwise.model.p2, metrics = "common")
+```
+
+### Visit 3
+
+```{r, message=FALSE, warning=FALSE}
+
+models <- list(full.model.p3, reduced.model.pvalue.p3, backwards.model.p3, forwards.model.p3, stepwise.model.p3)
+stargazer(models, type = "text")
+compare_performance(full.model.p3, reduced.model.pvalue.p3, backwards.model.p3, forwards.model.p3, stepwise.model.p3, metrics = "common")
+```
+
+# Longitudinal analysis for Stroke
+
+## Column {data-width="400"}
+
+### Analysis of data segregated by Stroke over visits
+
+```{r shiny_LongAnalysisStroke_Period, cache=FALSE}
+library("Epi")        # easy getting CI for model coef/pred
+library("lme4")       # linear mixed-effects models
+library("lmerTest")   # test for linear mixed-effects models
+library("emmeans")    # marginal means
+library("multcomp")   # CI for linear combinations of model coef
+library("geepack")    # generalized estimating equations
+library("ggeffects")  # marginal effects, adjusted predictions
+library("gt")         # nice tables
+library("labelled")   # labeling data
+library("rstatix")    # summary statistics
+library("ggpubr")     # convenient summary statistics and plots
+library("GGally")     # advanced plot
+ui <- shinyUI(fluidPage(
+  titlePanel("Longitudinal analysis for continuous variables"),
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("var", label = "Choose a variable",
+                  choices = c("Total Cholesterol" = "TOTCHOL",
+                              "Systolic BP" = "SYSBP",
+                              "Age" = "AGE",
+                              "Diastolic BP" = "DIABP",
+                              "BMI" = "BMI",
+                              "Cigarettes per Day" = "CIGPDAY",
+                              "Heart Rate" = "HEARTRTE",
+                              "Glucose" = "GLUCOSE"), 
+                  selected = "SYSBP")
+    ),
+    mainPanel(
+      h2("Trend of the variable over visits segregated by stroke"),
+      verbatimTextOutput("LA"),
+      plotOutput("box")
+    )
+  )
+))
+
+server <- shinyServer(function(input, output) {
+  
+
+output$box <- renderPlot({
+  group_by(f, STROKE, PERIOD) %>% 
+  summarise(mean = list(mean_ci(.data[[input$var]])), .groups = "drop") %>% 
+  unnest_wider(mean) %>% 
+  ggplot(aes(PERIOD, y, col = STROKE, shape = STROKE)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = ymin, ymax = ymax), width = 0.2) +
+  geom_line() +
+  labs(x = "Period, visit", y = input$var , shape = "Stroke", col = "Stroke")+
+  theme_minimal() +  # Minimalist theme
+  theme(legend.position = "top",  # Move legend to the top
+        legend.title = element_text(face = "italic"))  #
+ })
+
+output$LA <- renderPrint({
+    summary(glm(formula = as.formula(paste("STROKE ~", input$var, "* PERIOD")), data = f, family = binomial))
+  })
+})
+options = list(height = 800)
+shinyApp(ui, server, options = list(height = 800))
+
+```
+
+### Analysis of data segregated by Stroke over age
+
+```{r shiny_LongAnalysisStroke_Age, cache=FALSE}
+
+ui <- shinyUI(fluidPage(
+  titlePanel("Longitudinal analysis for continuous variables"),
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("var", label = "Choose a variable",
+                  choices = c("Total Cholesterol" = "TOTCHOL",
+                              "Systolic BP" = "SYSBP",
+                  
+                              "Diastolic BP" = "DIABP",
+                              "BMI" = "BMI",
+                              "Cigarettes per Day" = "CIGPDAY",
+                              "Heart Rate" = "HEARTRTE",
+                              "Glucose" = "GLUCOSE"), 
+                  selected = "SYSBP")
+    ),
+    mainPanel(
+      h2("Trend of the variable over visits segregated by stroke"),
+      verbatimTextOutput("LA"),
+      plotOutput("box")
+    )
+  )
+))
+
+server <- shinyServer(function(input, output) {
+  
+
+output$box <- renderPlot({
+  group_by(f, STROKE, AGE) %>% 
+  summarise(mean = list(mean_ci(.data[[input$var]])), .groups = "drop") %>% 
+  unnest_wider(mean) %>% 
+  ggplot(aes(AGE, y, col = STROKE, shape = STROKE)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = ymin, ymax = ymax), width = 0.2) +
+  geom_line() +
+  labs(x = "Age, years", y = input$var , shape = "Stroke", col = "Stroke")+
+  theme_minimal() +  # Minimalist theme
+  theme(legend.position = "top",  # Move legend to the top
+        legend.title = element_text(face = "italic"))  #
+ })
+output$LA <- renderPrint({
+    summary(glm(formula = as.formula(paste("STROKE ~", input$var, "* AGE")), data = f, family = binomial))
+  })
+})
+options = list(height = 800)
+shinyApp(ui, server, options = list(height = 800))
+
+```
+
+# ML Prediction of Stroke
+
+## Column {data-height="150"}
+
+### *Can SYSBP in early life predict STROKE later in life?*
+
+We assigned a value of STROKE=1 if the individual suffered from a stroke at time during the study (i.e., if the individual had a stroke before any visit, they are assigned a value of 1 in this column). Further, we took the average of systolic blood pressure during the first two visits to ask the question if high systolic BP earlier in life could be a predictor of stroke at any time in the individual's life time.
+
+```{r, message=FALSE, results='hide'}
+f_re <- f
+library(dplyr)
+
+f_re <- f_re %>% 
+ group_by(RANDID) %>%
+ mutate(STROKE = ifelse(any(STROKE == 1), 1, 0)) %>%
+ ungroup()
+
+f_re$STROKE <- as.factor(f_re$STROKE)
+f_reP12 <- f_re[f_re$PERIOD == 1 | f_re$PERIOD == 2, ]
+dim(f_reP12)
+f_reP12 <- f_reP12 %>%
+        group_by(RANDID) %>%
+        mutate(meanSYSBP = mean(SYSBP)) %>%
+        ungroup()
+dim(f_reP12)
+head(f_reP12)
+nrow(distinct(f_reP12, RANDID))
+f_reP12<-distinct(f_reP12, RANDID, .keep_all = TRUE)
+dim(f_reP12)
+head(f_reP12)
+```
+
+```{r, message=FALSE, results='hide'}
+set.seed(12345)
+ratio = sample(1:nrow(f_reP12), size = 0.20*nrow(f_reP12))
+test.data = f_reP12[ratio,] #Test dataset 20% of total
+train.data = f_reP12[-ratio,] #Train dataset 80% of total
+
+```
+
+```{r, message=FALSE, results='hide'}
+#Run full model on training set
+full.model = glm(STROKE ~ TOTCHOL+AGE + meanSYSBP + DIABP + CIGPDAY + BMI + HEARTRTE + GLUCOSE, data=train.data, family=binomial)
+summary(full.model)
+```
+
+## Column {data-height="650"}
+
+### Initial ML model for predicting stroke based on age and systolic blood pressure earlier in life
+
+```{r, message=FALSE}
+ML.model <- glm(STROKE ~ AGE + meanSYSBP, data=train.data, family=binomial)
+summary(ML.model)
+```
+
+## Column {data-height="350"}
+
+### Performance of the initial ML model
+
+```{r, message=FALSE}
+library(caret)
+#On the training data
+prdVal <- predict(ML.model, type='response')
+prdBln <- ifelse(prdVal > 0.5, 1, 0)
+cnfmtrx <- table(prd=prdBln, act=train.data$STROKE)
+confusionMatrix(cnfmtrx)
+```
+
+## Column {data-height="400"}
+
+### Resampling of data to remove biased distribution
+
+There was a higher number of individuals who did not have a stroke, which led to a bias in our machine learning model yielding a model that would have a tendency to assign a value of 'no stroke' to those who could have had a high susceptibility to stroke. Therefore, we had to resample the data using SMOTE to have a more balanced data set.
+
+```{r, message=FALSE}
+
+#use SMOTE to create new dataset that is more balanced
+f_new <- smote(STROKE ~ ., f_reP12, perc.over = 8, perc.under = 1)
+
+#view distribution of response variable in new dataset
+print ("The new balanced data set has similar number of samples with and without stroke")
+table(f_new$STROKE)
+
+```
+
+```{r, message=FALSE, results='hide'}
+set.seed(12345)
+ratio = sample(1:nrow(f_new), size = 0.20*nrow(f_new))
+test.data = f_new[ratio,] #Test dataset 20% of total
+train.data = f_new[-ratio,] #Train dataset 80% of total
+#Note: r packages exits that makes this easy to do
+```
+
+## Column {data-height="650"}
+
+### Machine learning model on the resampled data set
+
+```{r, message=FALSE}
+ML.model.red.smote <- glm(STROKE ~ AGE + meanSYSBP, data=train.data, family=binomial)
+summary(ML.model.red.smote)
+```
+
+## Column {data-height="650"}
+
+### Evaluation of the the machine learning model on the training data set
+
+```{r, message=FALSE}
+
+#On the training data
+prdVal <- predict(ML.model.red.smote, newdata=train.data, type='response')
+prdBln <- ifelse(prdVal > 0.5, 1, 0)
+cnfmtrx.red.smote.train <- table(prd=prdBln, act=train.data$STROKE)
+confusionMatrix(cnfmtrx.red.smote.train)
+```
+
+## Column {data-height="650"}
+
+### Evaluation of the the machine learning model on the test data set
+
+```{r, message=FALSE}
+
+#On the test data
+prdVal <- predict(ML.model.red.smote, newdata=test.data, type='response')
+prdBln <- ifelse(prdVal > 0.5, 1, 0)
+cnfmtrx.red.smote.test <- table(prd=prdBln, act=test.data$STROKE)
+confusionMatrix(cnfmtrx.red.smote.test)
+
+```
