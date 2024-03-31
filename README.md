@@ -1,6 +1,9 @@
 sessionInfo()
+
 R version 4.3.2 (2023-10-31)
+
 Platform: x86_64-apple-darwin20 (64-bit)
+
 Running under: macOS Monterey 12.7.1
 
 Matrix products: default
